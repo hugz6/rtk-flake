@@ -1,0 +1,100 @@
+name: Auto-update rtk
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Specific version to force (e.g. v0.49.0). Leave empty to use the latest release."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Detect latest rtk release
+        id: detect
+        run: |
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            TAG="${{ github.event.inputs.version }}"
+          else
+            TAG=$(curl -fsSL https://api.github.com/repos/rtk-ai/rtk/releases/latest \
+              | jq -r .tag_name)
+          fi
+
+          VERSION="${TAG#v}"
+          CURRENT=$(grep -oP 'version = "\K[^"]+' flake.nix | head -1)
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+
+          if [[ "$CURRENT" == "$VERSION" ]]; then
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::rtk is already at v${VERSION}, nothing to do."
+          else
+            echo "needs_update=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Update available: v${CURRENT} → v${VERSION}"
+          fi
+
+      - name: Update flake.nix
+        if: steps.detect.outputs.needs_update == 'true'
+        run: |
+          chmod +x update-rtk-version.sh
+          ./update-rtk-version.sh "${{ steps.detect.outputs.tag }}"
+
+      - name: Update flake.lock
+        if: steps.detect.outputs.needs_update == 'true'
+        run: nix flake update
+
+      - name: Verify build (x86_64-linux)
+        if: steps.detect.outputs.needs_update == 'true'
+        run: |
+          nix build .#rtk --no-link
+          echo "Build succeeded for rtk v${{ steps.detect.outputs.version }}"
+
+      - name: Create Pull Request
+        if: steps.detect.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: bump rtk ${{ steps.detect.outputs.current }} → ${{ steps.detect.outputs.version }}"
+          title: "⬆️ Update rtk to v${{ steps.detect.outputs.version }}"
+          body: |
+            Automated update of [rtk](https://github.com/rtk-ai/rtk) from `v${{ steps.detect.outputs.current }}` to `v${{ steps.detect.outputs.version }}`.
+
+            ### Changes
+            - Updated version in `flake.nix`
+            - Refreshed SRI hashes for all 4 platforms
+            - Updated `flake.lock`
+            - Verified `nix build .#rtk` on x86_64-linux
+
+            ### Release notes
+            👉 https://github.com/rtk-ai/rtk/releases/tag/${{ steps.detect.outputs.tag }}
+
+          branch: auto-update/rtk-${{ steps.detect.outputs.version }}
+
+          labels: |
+            dependencies
+            automated
+
+          delete-branch: true
+
