@@ -8,24 +8,24 @@
 
   outputs = { self, nixpkgs, flake-utils }:
     let
-      version = "0.48.0";
+      version = "0.51.0";
 
       platforms = {
         x86_64-linux = {
           asset = "rtk-x86_64-unknown-linux-musl.tar.gz";
-          hash = "sha256-5OZQ+hZ3wN4vaDmmBA17F/MS0y8WPEArda9w6eWvGpE=";
+          hash = "sha256-UCjTsZqPCZDTD+yfuwfjJ4K8VpjmGPsYYarYqcy6TrU=";
         };
         aarch64-linux = {
           asset = "rtk-aarch64-unknown-linux-gnu.tar.gz";
-          hash = "sha256-XtZUhqlgd71runyH/cnQ5KGRjRlhm+PIc4CIg4mjDHw=";
+          hash = "sha256-jW0arZ5ptCSB7acDlQfR9+6TaY+HcTzs2HPSh8GTFjI=";
         };
         x86_64-darwin = {
           asset = "rtk-x86_64-apple-darwin.tar.gz";
-          hash = "sha256-qV8sI+CFctzITd/1++Qy5B5/lDaWIusIbMpJrgtvYeg=";
+          hash = "sha256-vTnIFT9BRzWDYMfcUWZagTHMnuFvgfaalAL/pQC+PMI=";
         };
         aarch64-darwin = {
           asset = "rtk-aarch64-apple-darwin.tar.gz";
-          hash = "sha256-T6AlzJOnRLaWP05ToAjluj90tqOAYfSkfGOeHDAj4Ns=";
+          hash = "sha256-iBfYtxr8AqyL8G6yS8xBwwZZKrc1to6P7p2xug3ny1k=";
         };
       };
     in
